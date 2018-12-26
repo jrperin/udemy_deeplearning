@@ -22,6 +22,9 @@ base_treinamento = base.iloc[:, 1:7].values
 normalizador = MinMaxScaler(feature_range=(0,1))
 base_treinamento_normalizado = normalizador.fit_transform(base_treinamento)
 
+normalizador_previsoes = MinMaxScaler(feature_range=(0,1))
+normalizador_previsoes.fit_transform(base_treinamento[:,0:1])
+
 previsores = []
 preco_real = []
 for i in range(90, 1242):
@@ -63,3 +66,38 @@ mcp = ModelCheckpoint(filepath = 'pesos.h5', monitor = 'loss', save_best_only = 
 
 regressor.fit(previsores, preco_real, epochs = 100, batch_size = 32, callbacks = [es, rlr, mcp])
 
+
+# Depois de treinar - 58 epocas o modelo parou de melhorar - vamos carregar a base de testes
+base_teste = pd.read_csv('petr4-teste.csv')
+preco_real_teste = base_teste.iloc[: , 1:2].values
+
+frames = [ base, base_teste]
+base_completa = pd.concat(frames)
+# Excluir a coluna de Datas
+base_completa = base_completa.drop('Date', axis = 1)
+
+entradas = base_completa[len(base_completa) - len(base_teste) - 90:].values
+entradas = normalizador.transform(entradas)
+
+X_teste = []
+for i in range(90, 112):
+    X_teste.append(entradas[i-90: i, 0:6])
+#Converter para NunpyArray
+X_teste = np.array(X_teste)
+
+previsoes = regressor.predict(X_teste)
+previsoes = normalizador_previsoes.inverse_transform(previsoes)
+
+
+previsoes.mean()
+preco_real_teste.mean()
+print( previsoes.mean() - preco_real_teste.mean())
+
+
+plt.plot(preco_real_teste, color = 'red', label = 'Preco Real')
+plt.plot(previsoes, color = 'blue', label = 'Previsoes')
+plt.title('Previsao Preco das Acoes')
+plt.xlabel('Tempo')
+plt.ylabel('Valor')
+plt.legend()
+plt.show()
